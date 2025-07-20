@@ -21,8 +21,8 @@ GOOGLE_MAPS_SEARCH = 'https://www.google.com/maps/search/'
 NOMINATIM_URL      = 'https://nominatim.openstreetmap.org/search'
 PHOTON_URL         = 'https://photon.komoot.io/api/'
 HEADERS            = {'User-Agent': 'mcd-scraper/selenium/1.0'}
-PAUSE_OSM          = 1.0    # seconds between Nominatim/Photon calls
-BAR_LEN            = 40     # ASCII progress bar width
+PAUSE_OSM          = 1.0    
+BAR_LEN            = 40     
 
 # ----------------------------
 # HELPERS
@@ -84,7 +84,6 @@ def geocode_with_selenium(address: str, driver) -> tuple[float, float] | tuple[N
     try:
         url = GOOGLE_MAPS_SEARCH + quote_plus(address)
         driver.get(url)
-        # wait for redirect/page load
         time.sleep(5)
         final_url = driver.current_url
         m = re.search(r'/@(-?\d+\.\d+),(-?\d+\.\d+)', final_url)
@@ -108,7 +107,6 @@ def print_progress(idx, total, name, source, updated):
 # MAIN
 # ----------------------------
 def main():
-    # Set up Selenium headless Chrome
     chrome_opts = Options()
     chrome_opts.add_argument('--headless')
     chrome_opts.add_argument('--disable-gpu')
