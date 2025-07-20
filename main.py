@@ -5,6 +5,8 @@ from pydantic import BaseModel
 from typing import List, Optional, Dict, Any, Tuple
 import mysql.connector
 import re
+from fastapi.responses import FileResponse
+import os
 import math
 import json
 from datetime import datetime
@@ -597,6 +599,12 @@ chatbot = AgenticChatbot()
 # -----------------------------
 # ROUTES
 # -----------------------------
+
+
+# Serve index.html at root path
+@app.get("/")
+async def read_index():
+    return FileResponse('index.html')
 
 @app.get("/outlets", response_model=List[Outlet])
 def list_outlets():
