@@ -125,7 +125,7 @@ python outlet_coords.py
 python -m uvicorn main:app --host 0.0.0.0 --port 8000 --reload
 
 # Step 4: Access the application
-# Frontend: http://localhost:8000/static/index.html
+# Frontend: http://localhost:8000
 # API Documentation: http://localhost:8000/docs
 ```
 
