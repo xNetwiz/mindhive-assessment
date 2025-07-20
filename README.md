@@ -412,42 +412,6 @@ SELECT COUNT(*) FROM outlet_perks;
 SELECT * FROM outlets o JOIN outlet_perks op ON o.id = op.outlet_id LIMIT 5;
 ```
 
-## 🔧 Configuration Options
-
-### Environment Variables
-```bash
-# Database configuration
-export DB_HOST=localhost
-export DB_USER=root
-export DB_PASSWORD=your_password
-export DB_NAME=mcd_kualalumpur
-
-# API configuration
-export API_HOST=0.0.0.0
-export API_PORT=8000
-
-# Scraping configuration
-export SCRAPER_DELAY=2
-export SCRAPER_HEADLESS=true
-```
-
-### Configuration Files
-```python
-# config.py
-class Config:
-    DB_CONFIG = {
-        'host': os.getenv('DB_HOST', 'localhost'),
-        'user': os.getenv('DB_USER', 'root'),
-        'password': os.getenv('DB_PASSWORD', 'root'),
-        'database': os.getenv('DB_NAME', 'mcd_kualalumpur')
-    }
-    
-    SCRAPER_CONFIG = {
-        'delay': int(os.getenv('SCRAPER_DELAY', 2)),
-        'headless': os.getenv('SCRAPER_HEADLESS', 'true').lower() == 'true'
-    }
-```
-
 ## 📊 System Monitoring
 
 ### Health Check Endpoint
