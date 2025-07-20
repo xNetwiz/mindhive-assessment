@@ -1,0 +1,956 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>McDonald's Outlets Map</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: #f5f5f5;
+      overflow: hidden;
+    }
+
+    .app-container {
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .header {
+      background: linear-gradient(135deg, #ffcc00 0%, #ff9900 100%);
+      color: #333;
+      padding: 1rem 2rem;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+      z-index: 1000;
+      position: relative;
+    }
+
+    .header h1 {
+      font-size: 1.8rem;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .header .subtitle {
+      font-size: 0.9rem;
+      opacity: 0.8;
+      margin-top: 0.25rem;
+    }
+
+    .main-content {
+      flex: 1;
+      display: flex;
+      position: relative;
+    }
+
+    .sidebar {
+      width: 350px;
+      background: white;
+      border-right: 1px solid #e0e0e0;
+      display: flex;
+      flex-direction: column;
+      box-shadow: 2px 0 10px rgba(0,0,0,0.1);
+      z-index: 999;
+    }
+
+    .controls {
+      padding: 1.5rem;
+      border-bottom: 1px solid #e0e0e0;
+    }
+
+    .control-group {
+      margin-bottom: 1rem;
+    }
+
+    .control-group label {
+      display: block;
+      font-weight: 600;
+      margin-bottom: 0.5rem;
+      color: #333;
+    }
+
+    .toggle-switch {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      margin-bottom: 1rem;
+    }
+
+    .switch {
+      position: relative;
+      display: inline-block;
+      width: 50px;
+      height: 24px;
+    }
+
+    .switch input {
+      opacity: 0;
+      width: 0;
+      height: 0;
+    }
+
+    .slider {
+      position: absolute;
+      cursor: pointer;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background-color: #ccc;
+      transition: 0.3s;
+      border-radius: 24px;
+    }
+
+    .slider:before {
+      position: absolute;
+      content: "";
+      height: 18px;
+      width: 18px;
+      left: 3px;
+      bottom: 3px;
+      background-color: white;
+      transition: 0.3s;
+      border-radius: 50%;
+    }
+
+    input:checked + .slider {
+      background-color: #ff9900;
+    }
+
+    input:checked + .slider:before {
+      transform: translateX(26px);
+    }
+
+    .stats {
+      background: #f8f9fa;
+      padding: 1rem 1.5rem;
+      border-bottom: 1px solid #e0e0e0;
+    }
+
+    .stat-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 0.75rem;
+    }
+
+    .stat-item:last-child {
+      margin-bottom: 0;
+    }
+
+    .stat-label {
+      font-weight: 500;
+      color: #666;
+    }
+
+    .stat-value {
+      font-weight: 700;
+      color: #333;
+      background: white;
+      padding: 0.25rem 0.75rem;
+      border-radius: 20px;
+      font-size: 0.9rem;
+    }
+
+    .stat-value.overlapping {
+      background: #ffebee;
+      color: #c62828;
+    }
+
+    .outlets-list {
+      flex: 1;
+      overflow-y: auto;
+      padding: 1rem 1.5rem;
+      max-height: calc(100vh - 300px);
+    }
+
+    .outlets-list h3 {
+      font-size: 1.1rem;
+      margin-bottom: 1rem;
+      color: #333;
+    }
+
+    .outlet-item {
+      padding: 0.75rem;
+      margin-bottom: 0.5rem;
+      background: white;
+      border: 1px solid #e0e0e0;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .outlet-item:hover {
+      background: #f8f9fa;
+      border-color: #ff9900;
+      transform: translateY(-1px);
+    }
+
+    .outlet-item.overlapping {
+      border-color: #f44336;
+      background: #ffebee;
+    }
+
+    .outlet-name {
+      font-weight: 600;
+      color: #333;
+      margin-bottom: 0.25rem;
+    }
+
+    .outlet-address {
+      font-size: 0.85rem;
+      color: #666;
+      line-height: 1.4;
+    }
+
+    .outlet-status {
+      font-size: 0.75rem;
+      padding: 0.25rem 0.5rem;
+      border-radius: 12px;
+      margin-top: 0.5rem;
+      display: inline-block;
+    }
+
+    .outlet-status.normal {
+      background: #e8f5e8;
+      color: #2e7d32;
+    }
+
+    .outlet-status.overlapping {
+      background: #ffebee;
+      color: #c62828;
+    }
+
+    .map-container {
+      flex: 1;
+      position: relative;
+    }
+
+    #map {
+      height: 100%;
+      width: 100%;
+    }
+
+    .loading-overlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(255, 255, 255, 0.9);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+      flex-direction: column;
+      gap: 1rem;
+    }
+
+    .loading-spinner {
+      width: 40px;
+      height: 40px;
+      border: 4px solid #f3f3f3;
+      border-top: 4px solid #ff9900;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+
+    .error-message {
+      background: #ffebee;
+      color: #c62828;
+      padding: 1rem;
+      border-radius: 8px;
+      margin: 1rem;
+      border: 1px solid #ffcdd2;
+    }
+
+    .highlight-marker {
+      background-color: #f44336;
+      border: 2px solid white;
+      border-radius: 50%;
+      width: 16px;
+      height: 16px;
+      display: inline-block;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+    }
+
+    .normal-marker {
+      background-color: #ff9900;
+      border: 2px solid white;
+      border-radius: 50%;
+      width: 12px;
+      height: 12px;
+      display: inline-block;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+    }
+
+    .map-controls {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      z-index: 1000;
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+
+    .map-control-btn {
+      background: white;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      padding: 0.5rem;
+      cursor: pointer;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+      transition: all 0.2s ease;
+    }
+
+    .map-control-btn:hover {
+      background: #f5f5f5;
+      border-color: #ff9900;
+    }
+
+    .chat-interface {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      background: white;
+      border-radius: 8px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+      z-index: 1000;
+      min-width: 320px;
+      max-width: 400px;
+      overflow: hidden;
+      transition: all 0.3s ease;
+    }
+
+    .chat-interface.minimized {
+      height: 50px;
+    }
+
+    .chat-interface.minimized .chat-content {
+      display: none;
+    }
+
+    .chat-header {
+      background: linear-gradient(135deg, #ffcc00 0%, #ff9900 100%);
+      padding: 0.75rem 1rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-weight: 600;
+      color: #333;
+      cursor: pointer;
+    }
+
+    .chat-header span {
+      flex: 1;
+    }
+
+    .chat-minimize {
+      background: none;
+      border: none;
+      color: #333;
+      cursor: pointer;
+      padding: 0.25rem;
+      border-radius: 4px;
+      transition: background 0.2s ease;
+    }
+
+    .chat-minimize:hover {
+      background: rgba(0,0,0,0.1);
+    }
+
+    .chat-content {
+      padding: 1rem;
+    }
+
+    .chat-input-container {
+      display: flex;
+      gap: 0.5rem;
+      margin-bottom: 1rem;
+    }
+
+    .chat-input-container input {
+      flex: 1;
+      padding: 0.75rem;
+      border: 1px solid #ddd;
+      border-radius: 6px;
+      font-size: 0.9rem;
+      outline: none;
+      transition: border-color 0.2s ease;
+    }
+
+    .chat-input-container input:focus {
+      border-color: #ff9900;
+    }
+
+    .chat-send-btn {
+      background: #ff9900;
+      color: white;
+      border: none;
+      padding: 0.75rem 1rem;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: background 0.2s ease;
+    }
+
+    .chat-send-btn:hover {
+      background: #e68900;
+    }
+
+    #chat-response {
+      background: #f8f9fa;
+      border-radius: 6px;
+      padding: 1rem;
+      font-size: 0.9rem;
+      line-height: 1.4;
+      max-height: 300px;
+      overflow-y: auto;
+      display: none;
+    }
+
+    #chat-response.active {
+      display: block;
+    }
+
+    #chat-response b {
+      color: #333;
+      display: block;
+      margin-bottom: 0.5rem;
+    }
+
+    #chat-response ul {
+      margin: 0;
+      padding-left: 1.5rem;
+    }
+
+    #chat-response li {
+      margin-bottom: 0.5rem;
+      color: #666;
+    }
+
+    #chat-response small {
+      color: #888;
+      font-size: 0.8rem;
+    }
+
+    @media (max-width: 768px) {
+      .main-content {
+        position: relative;
+      }
+      
+      .sidebar {
+        width: 320px;
+        position: absolute;
+        left: -320px;
+        top: 0;
+        height: 100%;
+        transition: left 0.3s ease;
+        z-index: 1001;
+      }
+      
+      .sidebar.open {
+        left: 0;
+      }
+      
+      .header {
+        padding: 1rem;
+      }
+      
+      .header h1 {
+        font-size: 1.5rem;
+      }
+      
+      .map-container {
+        width: 100%;
+      }
+      
+      .mobile-toggle {
+        display: block !important;
+      }
+      
+      .desktop-only {
+        display: none !important;
+      }
+      
+      .chat-interface {
+        min-width: 280px;
+        max-width: 320px;
+        left: 5px;
+        top: 5px;
+      }
+      
+      .chat-input-container {
+        flex-direction: column;
+      }
+      
+      .chat-input-container input {
+        margin-bottom: 0.5rem;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="app-container">
+    <header class="header">
+      <h1>
+        <i class="fas fa-store"></i>
+        McDonald's Outlets Map
+      </h1>
+      <div class="subtitle">Interactive map showing outlet locations and 5km coverage areas</div>
+    </header>
+
+    <div class="main-content">
+      <div class="sidebar">
+        <div class="controls">
+          <div class="control-group">
+            <div class="toggle-switch">
+              <label class="switch">
+                <input type="checkbox" id="showCircles" checked>
+                <span class="slider"></span>
+              </label>
+              <span>Show 5km Radius</span>
+            </div>
+            
+            <div class="toggle-switch">
+              <label class="switch">
+                <input type="checkbox" id="showOverlaps" checked>
+                <span class="slider"></span>
+              </label>
+              <span>Highlight Overlapping Areas</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="stats">
+          <div class="stat-item">
+            <span class="stat-label">Total Outlets</span>
+            <span class="stat-value" id="totalOutlets">0</span>
+          </div>
+          <div class="stat-item">
+            <span class="stat-label">Overlapping Outlets</span>
+            <span class="stat-value overlapping" id="overlappingOutlets">0</span>
+          </div>
+          <div class="stat-item">
+            <span class="stat-label">Coverage Efficiency</span>
+            <span class="stat-value" id="efficiency">0%</span>
+          </div>
+        </div>
+
+        <div class="outlets-list">
+          <h3>Outlet Directory</h3>
+          <div id="outletsList"></div>
+        </div>
+      </div>
+
+      <div class="map-container">
+        <div id="map"></div>
+        <div class="loading-overlay" id="loadingOverlay">
+          <div class="loading-spinner"></div>
+          <div>Loading outlets...</div>
+        </div>
+        
+        <!-- Chat Interface -->
+        <div class="chat-interface">
+          <div class="chat-header">
+            <i class="fas fa-comments"></i>
+            <span>Ask about outlets</span>
+            <button class="chat-minimize" onclick="toggleChat()">
+              <i class="fas fa-minus"></i>
+            </button>
+          </div>
+          <div class="chat-content">
+            <div class="chat-input-container">
+              <input type="text" id="chatbox" placeholder="Ask about outlets..." />
+              <button onclick="sendQuery()" class="chat-send-btn">
+                <i class="fas fa-paper-plane"></i>
+              </button>
+            </div>
+            <div id="chat-response"></div>
+          </div>
+        </div>
+        
+        <div class="map-controls">
+          <button class="map-control-btn" onclick="fitMapToOutlets()" title="Fit to all outlets">
+            <i class="fas fa-expand-arrows-alt"></i>
+          </button>
+          <button class="map-control-btn mobile-toggle" onclick="toggleSidebar()" title="Toggle sidebar" style="display: none;">
+            <i class="fas fa-bars"></i>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+  <script src="https://unpkg.com/@turf/turf@6.5.0/turf.min.js"></script>
+  <script>
+    // Configuration
+    const API_URL = "http://localhost:8000/outlets";
+    
+    // Global variables
+    let map;
+    let outletFeatures = [];
+    let outletMarkers = [];
+    let overlappingIds = new Set();
+    let circlesVisible = true;
+    let overlapsVisible = true;
+
+    // Initialize the application
+    function initApp() {
+      initMap();
+      loadOutlets();
+      setupEventListeners();
+    }
+
+    // Initialize the map
+    function initMap() {
+      map = L.map("map").setView([3.139, 101.6869], 11);
+
+      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+        maxZoom: 18,
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+      }).addTo(map);
+    }
+
+    // Load outlets from API
+    async function loadOutlets() {
+      try {
+        const response = await fetch(API_URL);
+        if (!response.ok) throw new Error('Failed to fetch outlets');
+        
+        const data = await response.json();
+        processOutlets(data);
+        
+      } catch (error) {
+        showError('Failed to load outlets: ' + error.message);
+      } finally {
+        hideLoading();
+      }
+    }
+
+    // Process outlet data
+    function processOutlets(data) {
+      data.forEach(outlet => {
+        if (outlet.latitude && outlet.longitude) {
+          const coords = [outlet.latitude, outlet.longitude];
+
+          // Create marker
+          const marker = L.marker(coords, {
+            icon: L.divIcon({
+              className: '',
+              html: '<div class="normal-marker"></div>',
+              iconSize: [12, 12],
+            })
+          }).bindPopup(createPopupContent(outlet));
+          
+          marker.addTo(map);
+
+          // Create circle
+          const circle = L.circle(coords, {
+            radius: 5000,
+            color: "#3388ff",
+            weight: 2,
+            fillOpacity: 0.1,
+            opacity: 0.7
+          });
+          circle.addTo(map);
+
+          // Create turf circle for intersection calculations
+          const circlePoly = turf.circle([outlet.longitude, outlet.latitude], 5, {
+            steps: 64,
+            units: 'kilometers'
+          });
+
+          // Store feature data
+          const feature = {
+            id: outlet.id,
+            name: outlet.name,
+            address: outlet.address,
+            coords: coords,
+            turfCircle: circlePoly,
+            circle: circle,
+            marker: marker,
+            data: outlet
+          };
+
+          outletFeatures.push(feature);
+          outletMarkers.push({
+            id: outlet.id,
+            marker: marker
+          });
+        }
+      });
+
+      // Check for overlaps and update UI
+      checkOverlaps();
+      updateStats();
+      updateOutletsList();
+      fitMapToOutlets();
+    }
+
+    // Create popup content
+    function createPopupContent(outlet) {
+      return `
+        <div style="min-width: 200px;">
+          <h4 style="margin: 0 0 8px 0; color: #333;">${outlet.name}</h4>
+          <p style="margin: 0 0 8px 0; color: #666; font-size: 0.9em;">${outlet.address}</p>
+          <div style="font-size: 0.8em; color: #888;">
+            <strong>ID:</strong> ${outlet.id}<br>
+            <strong>Coordinates:</strong> ${outlet.latitude.toFixed(4)}, ${outlet.longitude.toFixed(4)}
+          </div>
+        </div>
+      `;
+    }
+
+    // Check for overlapping outlets
+    function checkOverlaps() {
+      overlappingIds.clear();
+
+      for (let i = 0; i < outletFeatures.length; i++) {
+        const a = outletFeatures[i];
+        for (let j = i + 1; j < outletFeatures.length; j++) {
+          const b = outletFeatures[j];
+          if (turf.booleanIntersects(a.turfCircle, b.turfCircle)) {
+            overlappingIds.add(a.id);
+            overlappingIds.add(b.id);
+          }
+        }
+      }
+
+      updateOverlapVisuals();
+    }
+
+    // Update overlap visualizations
+    function updateOverlapVisuals() {
+      outletFeatures.forEach(outlet => {
+        const isOverlapping = overlappingIds.has(outlet.id);
+        
+        if (isOverlapping && overlapsVisible) {
+          outlet.circle.setStyle({
+            color: "#f44336",
+            weight: 3,
+            fillOpacity: 0.2
+          });
+          outlet.marker.setIcon(
+            L.divIcon({
+              className: '',
+              html: '<div class="highlight-marker"></div>',
+              iconSize: [16, 16],
+            })
+          );
+        } else {
+          outlet.circle.setStyle({
+            color: "#3388ff",
+            weight: 2,
+            fillOpacity: 0.1
+          });
+          outlet.marker.setIcon(
+            L.divIcon({
+              className: '',
+              html: '<div class="normal-marker"></div>',
+              iconSize: [12, 12],
+            })
+          );
+        }
+
+        // Show/hide circles based on toggle
+        if (circlesVisible) {
+          outlet.circle.addTo(map);
+        } else {
+          map.removeLayer(outlet.circle);
+        }
+      });
+    }
+
+    // Update statistics
+    function updateStats() {
+      const total = outletFeatures.length;
+      const overlapping = overlappingIds.size;
+      const efficiency = total > 0 ? Math.round(((total - overlapping) / total) * 100) : 0;
+
+      document.getElementById('totalOutlets').textContent = total;
+      document.getElementById('overlappingOutlets').textContent = overlapping;
+      document.getElementById('efficiency').textContent = efficiency + '%';
+    }
+
+    // Update outlets list
+    function updateOutletsList() {
+      const listContainer = document.getElementById('outletsList');
+      listContainer.innerHTML = '';
+
+      outletFeatures.forEach(outlet => {
+        const isOverlapping = overlappingIds.has(outlet.id);
+        const item = document.createElement('div');
+        item.className = `outlet-item ${isOverlapping ? 'overlapping' : ''}`;
+        item.innerHTML = `
+          <div class="outlet-name">${outlet.name}</div>
+          <div class="outlet-address">${outlet.address}</div>
+          <div class="outlet-status ${isOverlapping ? 'overlapping' : 'normal'}">
+            ${isOverlapping ? 'Overlapping Coverage' : 'Normal Coverage'}
+          </div>
+        `;
+        
+        item.addEventListener('click', () => {
+          map.setView(outlet.coords, 15);
+          outlet.marker.openPopup();
+        });
+
+        listContainer.appendChild(item);
+      });
+    }
+
+    // Setup event listeners
+    function setupEventListeners() {
+      document.getElementById('showCircles').addEventListener('change', (e) => {
+        circlesVisible = e.target.checked;
+        updateOverlapVisuals();
+      });
+
+      document.getElementById('showOverlaps').addEventListener('change', (e) => {
+        overlapsVisible = e.target.checked;
+        updateOverlapVisuals();
+      });
+      
+      // Show mobile toggle button on smaller screens
+      function checkScreenSize() {
+        const mobileToggle = document.querySelector('.mobile-toggle');
+        if (window.innerWidth <= 768) {
+          mobileToggle.style.display = 'block';
+        } else {
+          mobileToggle.style.display = 'none';
+          // Ensure sidebar is visible on desktop
+          document.querySelector('.sidebar').classList.remove('open');
+        }
+      }
+      
+      checkScreenSize();
+      window.addEventListener('resize', checkScreenSize);
+    }
+
+    // Chat functionality
+    function sendQuery() {
+    const input = document.getElementById("chatbox");
+    const query = input.value.trim();
+    if (!query) return;
+
+    // Show loading in chat response
+    const resDiv = document.getElementById("chat-response");
+    resDiv.className = "active";
+    resDiv.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Searching...';
+
+    fetch("http://localhost:8000/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ question: query })
+    })
+        .then(res => res.json())
+        .then(data => {
+        console.log("Chat API response:", data);
+        if (data.answer) {
+            resDiv.innerHTML = `<b>${data.answer.replace(/\n/g, "<br>")}</b>`;
+        } else {
+            resDiv.innerHTML = `<b>No answer returned.</b>`;
+        }
+        input.value = "";
+        })
+        .catch(error => {
+        resDiv.innerHTML = `<b style="color: #f44336;">Error: ${error.message}</b>`;
+        });
+    }
+
+
+    // Toggle chat interface
+    function toggleChat() {
+      const chatInterface = document.querySelector('.chat-interface');
+      const minimizeBtn = document.querySelector('.chat-minimize i');
+      
+      chatInterface.classList.toggle('minimized');
+      
+      if (chatInterface.classList.contains('minimized')) {
+        minimizeBtn.className = 'fas fa-plus';
+      } else {
+        minimizeBtn.className = 'fas fa-minus';
+      }
+    }
+
+    // Allow Enter key to send query
+    document.addEventListener('DOMContentLoaded', function() {
+      document.getElementById('chatbox').addEventListener('keypress', function(e) {
+        if (e.key === 'Enter') {
+          sendQuery();
+        }
+      });
+    });
+
+    // Fit map to show all outlets
+    function fitMapToOutlets() {
+      if (outletFeatures.length > 0) {
+        const group = new L.featureGroup(outletFeatures.map(f => f.marker));
+        map.fitBounds(group.getBounds().pad(0.1));
+      }
+    }
+
+    // Toggle sidebar (mobile)
+    function toggleSidebar() {
+      const sidebar = document.querySelector('.sidebar');
+      sidebar.classList.toggle('open');
+      
+      // Close sidebar when clicking on map on mobile
+      if (sidebar.classList.contains('open')) {
+        const mapContainer = document.querySelector('.map-container');
+        const closeOnClick = (e) => {
+          if (!sidebar.contains(e.target)) {
+            sidebar.classList.remove('open');
+            mapContainer.removeEventListener('click', closeOnClick);
+          }
+        };
+        // Add delay to prevent immediate closing
+        setTimeout(() => {
+          mapContainer.addEventListener('click', closeOnClick);
+        }, 100);
+      }
+    }
+
+    // Show error message
+    function showError(message) {
+      const errorDiv = document.createElement('div');
+      errorDiv.className = 'error-message';
+      errorDiv.textContent = message;
+      document.querySelector('.map-container').appendChild(errorDiv);
+    }
+
+    // Hide loading overlay
+    function hideLoading() {
+      const loadingOverlay = document.getElementById('loadingOverlay');
+      loadingOverlay.style.display = 'none';
+    }
+
+    // Initialize the application when DOM is loaded
+    document.addEventListener('DOMContentLoaded', initApp);
+
+    // Handle window resize
+    window.addEventListener('resize', () => {
+      if (map) {
+        map.invalidateSize();
+      }
+    });
+  </script>
+</body>
+</html>
