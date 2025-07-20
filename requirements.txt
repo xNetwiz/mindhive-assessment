@@ -1,0 +1,61 @@
+# Web Framework
+fastapi==0.104.1
+uvicorn[standard]==0.24.0
+
+# Database
+mysql-connector-python==8.2.0
+
+# Web Scraping & Automation
+selenium==4.15.2
+beautifulsoup4==4.12.2
+
+# HTTP Requests
+requests==2.31.0
+
+# Data Processing & Validation
+pydantic==2.5.0
+
+# Text Processing
+unicodedata2==15.1.0
+
+# CORS Support
+python-multipart==0.0.6
+
+# Date/Time Utilities (built-in datetime is used, but for enhanced functionality)
+python-dateutil==2.8.2
+
+# Collections utilities (defaultdict, Counter are built-in, but for consistency)
+# No additional package needed for collections
+
+# Math utilities (built-in math is used)
+# No additional package needed for math
+
+# Regular expressions (built-in re is used)
+# No additional package needed for re
+
+# JSON handling (built-in json is used)
+# No additional package needed for json
+
+# Time utilities (built-in time is used)
+# No additional package needed for time
+
+# System utilities (built-in sys is used)
+# No additional package needed for sys
+
+# URL utilities (built-in urllib.parse is used)
+# No additional package needed for urllib
+
+# Optional: For better development experience
+python-dotenv==1.0.0
+
+# Optional: For testing
+pytest==7.4.3
+pytest-asyncio==0.21.1
+httpx==0.25.2
+
+# Optional: For code formatting and linting
+black==23.11.0
+flake8==6.1.0
+
+# Optional: For type checking
+mypy==1.7.1
