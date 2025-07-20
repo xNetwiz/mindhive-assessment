@@ -135,7 +135,6 @@ class KnowledgeBase:
             'times square': 'berjaya times square',
             'lot 10': 'lot 10 shopping centre'
         }
-        # Updated to match your exact database perk codes
         self.service_knowledge = {
             '24_hours': {
                 'keywords': ['24', 'hour', 'hours', 'all', 'day', 'night', 'late', 'early', 'always', 'anytime'],
@@ -223,7 +222,6 @@ class KnowledgeBase:
                 if keyword in knowledge['vector']:
                     score += knowledge['vector'][keyword]
             
-            # Normalize score
             if query_keywords:
                 score = score / len(query_keywords)
             
@@ -255,7 +253,6 @@ class AgenticChatbot:
             'numbers': []
         }
         
-        # Extract locations
         location_patterns = [
             r'\b(?:in|at|near|around)\s+([a-z\s]+?)(?:\s|$|,|\?|!)',
             r'\b(kuala lumpur|kl|klcc|bukit bintang|pavilion|mid valley|bangsar|mont kiara)\b',
@@ -266,21 +263,18 @@ class AgenticChatbot:
             matches = re.findall(pattern, text.lower())
             entities['locations'].extend([m.strip() for m in matches if m.strip()])
         
-        # Extract services - improved detection
         text_lower = text.lower()
         for service, info in self.knowledge_base.service_knowledge.items():
             for keyword in info['keywords']:
                 if keyword in text_lower:
                     entities['services'].append(service)
-                    break  # Avoid duplicates for same service
+                    break  
         
-        # Extract time references
         time_patterns = [r'\b(\d{1,2})\s*(?:am|pm)\b', r'\b(morning|afternoon|evening|night)\b']
         for pattern in time_patterns:
             matches = re.findall(pattern, text.lower())
             entities['time_references'].extend(matches)
         
-        # Extract numbers
         number_matches = re.findall(r'\b(\d+)\b', text)
         entities['numbers'] = [int(n) for n in number_matches]
         
@@ -292,19 +286,16 @@ class AgenticChatbot:
         intent_scores = defaultdict(float)
         query_lower = query.lower()
         
-        # Check for "list all" or "show all" patterns first - these should override service detection
         list_all_patterns = ['list all', 'show all', 'all outlets', 'all locations', 'every outlet', 'complete list']
         if any(pattern in query_lower for pattern in list_all_patterns):
             intent_scores['general_info'] += 0.9
             reasoning_steps.append("Detected 'list all' request - overriding other intents")
             return 'general_info', 0.9, " | ".join(reasoning_steps)
         
-        # Service inquiry detection - FIXED: Check if services were detected
         if entities['services']:
-            intent_scores['service_inquiry'] += 0.8  # Higher weight for service detection
+            intent_scores['service_inquiry'] += 0.8 
             reasoning_steps.append(f"Detected service keywords: {entities['services']}")
         
-        # Service-related keywords that indicate service inquiry
         service_inquiry_keywords = [
             'allows', 'allow', 'support', 'supports', 'offer', 'offers', 'provide', 'provides', 
             'have', 'has', 'available', 'can i', 'do you', 'which', 'what', 'where can i'
@@ -313,7 +304,6 @@ class AgenticChatbot:
             intent_scores['service_inquiry'] += 0.6
             reasoning_steps.append("Found service inquiry keywords")
         
-        # Location-related analysis
         if entities['locations']:
             intent_scores['location_search'] += 0.5
             reasoning_steps.append(f"Detected locations: {entities['locations']}")
@@ -322,25 +312,21 @@ class AgenticChatbot:
             intent_scores['service_inquiry'] += 0.3
             reasoning_steps.append(f"Detected time references: {entities['time_references']}")
         
-        # Location-related keywords
         location_keywords = ['where', 'nearest', 'closest', 'find', 'locate', 'address']
         if any(kw in query_lower for kw in location_keywords) and not entities['services']:
             intent_scores['location_search'] += 0.5
             reasoning_steps.append("Found location search keywords")
         
-        # Navigation keywords
         nav_keywords = ['direction', 'how to get', 'way to', 'navigate', 'route']
         if any(kw in query_lower for kw in nav_keywords):
             intent_scores['navigation'] += 0.7
             reasoning_steps.append("Found navigation keywords")
         
-        # General info keywords (only if no services detected)
         general_keywords = ['list', 'show', 'tell me about', 'information']
         if any(kw in query_lower for kw in general_keywords) and not entities['services']:
             intent_scores['general_info'] += 0.4
             reasoning_steps.append("Found general information keywords")
         
-        # Determine final intent
         if not intent_scores:
             return 'general_info', 0.3, "No specific intent detected, defaulting to general information"
         
@@ -352,7 +338,6 @@ class AgenticChatbot:
     
     def _generate_sql_query(self, intent: str, entities: Dict) -> Tuple[str, tuple]:
         """Generate appropriate SQL query based on intent and entities"""
-        # Base query with JOINs to get outlet perks
         base_query = """
             SELECT DISTINCT 
                 o.id, o.name, o.address, o.waze_link, o.latitude, o.longitude,
@@ -366,8 +351,7 @@ class AgenticChatbot:
         conditions = []
         params = []
         
-        # Add service conditions based on perks - FIXED
-        if entities['services']:  # Check if services exist regardless of intent
+        if entities['services']:  
             perk_conditions = []
             for service in entities['services']:
                 if service in self.knowledge_base.service_knowledge:
@@ -379,11 +363,9 @@ class AgenticChatbot:
             if perk_conditions:
                 conditions.append(f"({' OR '.join(perk_conditions)})")
         
-        # Add location conditions
         if entities['locations']:
             location_conditions = []
             for location in entities['locations']:
-                # Check for aliases
                 normalized_location = self.knowledge_base.location_aliases.get(location, location)
                 location_conditions.append("o.address LIKE %s")
                 params.append(f"%{normalized_location}%")
@@ -391,7 +373,6 @@ class AgenticChatbot:
             if location_conditions:
                 conditions.append(f"({' OR '.join(location_conditions)})")
         
-        # Construct final query
         if conditions:
             sql = f"{base_query} WHERE {' AND '.join(conditions)} GROUP BY o.id, o.name, o.address, o.waze_link, o.latitude, o.longitude"
         else:
@@ -409,13 +390,11 @@ class AgenticChatbot:
         for outlet in outlets:
             score = 0.0
             
-            # Location relevance
             if entities['locations']:
                 for location in entities['locations']:
                     if location.lower() in outlet.get('address', '').lower():
                         score += 0.5
             
-            # Service relevance based on perks
             if entities['services']:
                 outlet_perks = outlet.get('perk_codes', '') or ''
                 for service in entities['services']:
@@ -426,7 +405,6 @@ class AgenticChatbot:
                                 score += 0.8
                                 break
             
-            # Name similarity
             name_similarity = self.text_processor.calculate_similarity(
                 query, outlet.get('name', '')
             )
@@ -434,7 +412,6 @@ class AgenticChatbot:
             
             scored_outlets.append((outlet, score))
         
-        # Sort by score and return outlets
         scored_outlets.sort(key=lambda x: x[1], reverse=True)
         return [outlet for outlet, score in scored_outlets]
     
@@ -447,9 +424,8 @@ class AgenticChatbot:
         perk_list = perk_codes.split(',') if perk_codes else []
         display_perks = []
         
-        # Convert perk codes to display-friendly format
         for perk in perk_list:
-            perk = perk.strip()  # Remove whitespace
+            perk = perk.strip() 
             if perk:
                 if perk == '24_HOURS':
                     display_perks.append("24 Hours")
@@ -483,19 +459,16 @@ class AgenticChatbot:
         outlet_count = len(outlets) if outlets else 0
         suggested_actions = []
         
-        # Helper function to format outlet list
         def format_outlet_list(outlets_list):
             if not outlets_list:
                 return ""
             
             formatted_list = []
             
-            # Show ALL outlets, no truncation
             for outlet in outlets_list:
                 name = outlet.get('name', 'Unknown')
                 address = outlet.get('address', 'Address not available')
                 
-                # Add perks information
                 perks_info = self._format_outlet_perks(outlet)
                 
                 formatted_list.append(f"• {name}{perks_info}\n  📍 {address}")
@@ -536,7 +509,6 @@ class AgenticChatbot:
                     suggested_actions = ["Search nearby areas", "Find all outlets"]
             
             else:
-                # Generic service inquiry response
                 service_names = []
                 for service in entities['services']:
                     if service in self.knowledge_base.service_knowledge:
@@ -568,7 +540,7 @@ class AgenticChatbot:
                 response = "I need more location information to provide navigation assistance."
                 suggested_actions = ["Provide current location", "Search by address"]
         
-        else:  # general_info
+        else: 
             if outlet_count > 0:
                 response = f"Here's what I found: {outlet_count} McDonald's outlet{'s' if outlet_count != 1 else ''} in our database. "
                 response += "Each location offers various services and amenities."
@@ -583,31 +555,24 @@ class AgenticChatbot:
     async def process_query(self, query: str, user_location: Optional[str] = None, context: Optional[Dict] = None) -> ChatResponse:
         """Main agentic processing pipeline"""
         try:
-            # Store conversation context
             self.conversation_memory.append({
                 'query': query,
                 'timestamp': datetime.now(),
                 'user_location': user_location
             })
             
-            # Extract entities
             entities = self._extract_entities(query)
             if user_location and not entities['locations']:
                 entities['locations'].append(user_location)
             
-            # Reason about intent
             intent, confidence, reasoning = self._reason_about_intent(query, entities)
             
-            # Generate SQL query
             sql, params = self._generate_sql_query(intent, entities)
             
-            # Execute query
             outlets = query_db(sql, params)
             
-            # Rank results by relevance
             outlets = self._rank_outlets_by_relevance(outlets, query, entities)
             
-            # Generate response
             response_text, suggested_actions = self._generate_response(intent, outlets, entities, query)
             
             return ChatResponse(
@@ -627,7 +592,6 @@ class AgenticChatbot:
                 reasoning=f"Error occurred: {str(e)}"
             )
 
-# Initialize the agentic chatbot
 chatbot = AgenticChatbot()
 
 # -----------------------------
@@ -648,7 +612,6 @@ def list_outlets():
     """
     outlets = query_db(sql)
     
-    # Format perks as list
     for outlet in outlets:
         if outlet.get('perks'):
             outlet['perks'] = outlet['perks'].split(',')
@@ -734,20 +697,17 @@ def get_chat_memory():
     """Get chatbot conversation memory and statistics"""
     memory = chatbot.conversation_memory
     
-    # Calculate statistics
     total_conversations = len(memory)
     recent_conversations = [
-        conv for conv in memory[-10:]  # Last 10 conversations
+        conv for conv in memory[-10:]  
         if conv.get('timestamp')
     ]
     
-    # Analyze intent distribution
     intent_stats = {}
     location_stats = {}
     
     for conv in memory:
-        # This would need to be stored in memory during processing
-        # For now, we'll return basic conversation data
+
         pass
     
     return {
@@ -771,13 +731,11 @@ def get_chat_memory():
 def health_check():
     """Health check endpoint for monitoring service status"""
     try:
-        # Test database connection
         test_query = "SELECT COUNT(*) as count FROM outlets LIMIT 1"
         db_result = query_db(test_query)
         db_status = "healthy" if db_result else "unhealthy"
         outlet_count = db_result[0]["count"] if db_result else 0
         
-        # Test chatbot initialization
         chatbot_status = "healthy" if chatbot and hasattr(chatbot, 'knowledge_base') else "unhealthy"
         
         return {
